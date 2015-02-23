@@ -53,7 +53,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             response = {
                 "timestamp": time.time(),
                 "sender": self.username,
-                "response": "msg",
+                "response": "message",
                 "content": message["content"]
             }
             client.connection.sendall(json.dumps(response))
@@ -108,7 +108,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
         elif message["request"] == "logout":
             self.logout()
         
-        elif message["request"] == "msg":
+        elif message["request"] == "message":
             self.msg(message)
         
         elif message["request"] == "names":

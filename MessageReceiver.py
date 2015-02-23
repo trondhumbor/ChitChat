@@ -2,7 +2,6 @@
 __author__ = "Trond Humborstad"
 
 from threading import Thread
-import json
 
 class MessageReceiver(Thread):
     """
@@ -25,4 +24,4 @@ class MessageReceiver(Thread):
     def run(self):
         while True:
             received_string = self.connection.recv(4096)
-            self.client.receive_message(json.loads(received_string))
+            self.client.receive_message(received_string)

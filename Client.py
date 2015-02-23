@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 __author__ = "Trond Humborstad"
 
-import socket, json
+import socket, json, datetime
 from MessageReceiver import MessageReceiver
 
 class Client:
@@ -35,10 +35,11 @@ class Client:
         self.connection.close()
 
     def receive_message(self, message):
+        message = json.loads(message)
         if message["response"] in ["info", "error"]:
             print "[%s] - %s" % (message["response"], message["content"])
         
-        elif message["response"] == "msg":
+        elif message["response"] == "message":
             if message["sender"] != self.username :
                 print "%s -- %s" % (message["sender"], message["content"])
         
@@ -56,7 +57,7 @@ class Client:
         self.connection.sendall(data)
 
     def dispatcher(self, data):
-        message = {"request":"msg", "content":data}
+        message = {"request":"message", "content":data}
         
         if data.startswith("/login") and len(data.split()) == 2:
             self.username = data.split()[1]
@@ -73,8 +74,6 @@ class Client:
             message["content"] = ""
         
         self.send_payload(json.dumps(message))
-
-        
 
 
 if __name__ == "__main__":
