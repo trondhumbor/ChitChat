@@ -4,24 +4,33 @@ __author__ = "Trond Humborstad"
 import SocketServer, json, time
 
 class StateKeeper(object):
+    """
+    This class keeps track of the state of the server.
+    More specifically, which clients are connected and 
+    a log over previously sent messages. Whenever a client
+    connects/disconnects from the server or sends a message,
+    the variables holding the state are updated.
+    """
     def __init__(self):
         self.connectedClients = []
         self.chatlog = []
 
 class ClientHandler(SocketServer.BaseRequestHandler):
-    def handle(self):
-        """
-        This method handles the connection between a client and the server.
-        """
-        self.ip = self.client_address[0]
-        self.port = self.client_address[1]
-        self.connection = self.request
+    
+    """
+    This class handles the connection between a client and the server.
+    This class is instantiated once for each client.
+    The handle()-function is run automatically when a client connects.
+    """
 
+    def handle(self):
+        # By default, the client isn't logged in.
         self.loggedin = False
         self.username = "Server"
 
+        # Listen for incoming messages from the client.
         while True:
-            received_string = self.connection.recv(4096)
+            received_string = self.request.recv(4096)
             self.dispatch(received_string)
 
     def login(self, message):
@@ -34,7 +43,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             "response": "history",
             "content": self.server.statekeeper.chatlog
         }
-        self.connection.sendall(json.dumps(response))
+        self.request.sendall(json.dumps(response))
 
     def logout(self):
         response = {
@@ -43,7 +52,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             "response": "info",
             "content": "You've been logged out"
         }
-        self.connection.sendall(json.dumps(response))
+        self.request.sendall(json.dumps(response))
         self.loggedin = False
         self.username = "Server"
         self.server.statekeeper.connectedClients.remove(self)
@@ -56,7 +65,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
                 "response": "message",
                 "content": message["content"]
             }
-            client.connection.sendall(json.dumps(response))
+            client.request.sendall(json.dumps(response))
         self.server.statekeeper.chatlog.append(response)
 
     def names(self):
@@ -66,16 +75,16 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             "response": "names",
             "content": "Names: \r\n" + "\r\n".join([client.username for client in self.server.statekeeper.connectedClients])
         }
-        self.connection.sendall(json.dumps(response))
+        self.request.sendall(json.dumps(response))
 
     def help(self):
         response = {
             "timestamp": time.time(),
             "sender": self.username,
             "response": "info",
-            "content": "No help available"
+            "content": "No help currently available" # TODO: Add some useful message here
         }
-        self.connection.sendall(json.dumps(response))
+        self.request.sendall(json.dumps(response))
 
     def error(self, msg):
         response = {
@@ -84,7 +93,12 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             "response": "error",
             "content": msg
         }
-        self.connection.sendall(json.dumps(response))
+        self.request.sendall(json.dumps(response))
+
+    # The dispatch-method is called whenever the server receives a message
+    # from the client. The message *should* be JSON-formatted, and conform to the
+    # protocol as outlined by the assignment-text.
+    # Some actions are also reserved for logged-on users only.
 
     def dispatch(self, msg):
         try:
@@ -103,6 +117,8 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             self.help()
         
         elif not self.loggedin:
+            # After this, we know that the clients are logged in, and
+            # they may then access the actions reserved for logged-in users.
             self.error("You must be logged in to access this function")
 
         elif message["request"] == "logout":

@@ -6,12 +6,12 @@ from MessageReceiver import MessageReceiver
 
 class Client:
     """
-    This is the chat client class
+    This is the chat client class.
     """
 
     def __init__(self, host, server_port):
         """
-        This method is run when creating a new Client object
+        This method is run when creating a new Client object.
         """
 
         # Set up the socket connection to the server
@@ -25,8 +25,15 @@ class Client:
     def run(self):
         # Initiate the connection to the server
         self.connection.connect((self.host, self.server_port))
+
+        # We kick off a background thread which'll listen for incoming messages from
+        # the server. Whenever a message from the server is received, the MessageReceiver
+        # will call the receive_message method in this class.
+
         thread = MessageReceiver(self, self.connection)
         thread.start()
+
+        # We listen for user input and send it to the dispatcher for formatting.
         while True:
             input_string = str(raw_input(""))
             self.dispatcher(input_string)
@@ -34,6 +41,8 @@ class Client:
     def disconnect(self):
         self.connection.close()
 
+    # receive_message is called whenever the MessageReceiver receives a message from the server.
+    # The method will then represent the message in a visually pleasing way for the user.
     def receive_message(self, message):
         message = json.loads(message)
         if message["response"] in ["info", "error"]:
@@ -56,6 +65,8 @@ class Client:
     def send_payload(self, data):
         self.connection.sendall(data)
 
+    # The dispatch method makes sure the message conforms with
+    # the protocol as outlined by the assignment.
     def dispatcher(self, data):
         message = {"request":"message", "content":data}
         
@@ -77,10 +88,4 @@ class Client:
 
 
 if __name__ == "__main__":
-    """
-    This is the main method and is executed when you type "python Client.py"
-    in your terminal.
-
-    No alterations is necessary
-    """
     client = Client("localhost", 9998)
