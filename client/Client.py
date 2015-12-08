@@ -6,14 +6,16 @@ from MessageReceiver import MessageReceiver
 
 class Client:
     """
-    This is the chat client class.
+    A simple client implementing the chat protocol.
+    On initialization, the client creates a connection to the server. It then
+    kicks off a background thread which listens for incoming messages. When a message
+    is received from the server, the background thread calls receive_message with the 
+    received message as an argument. receive_message formats the message nicely and displays it
+    in the terminal. The client also loops for client input. When the user submits a message, 
+    the dispatch() method is called which formats the message and sends it to the server.
     """
 
     def __init__(self, host, server_port):
-        """
-        This method is run when creating a new Client object.
-        """
-
         # Set up the socket connection to the server
         self.connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.host = host
@@ -65,10 +67,8 @@ class Client:
     def send_payload(self, data):
         self.connection.sendall(data)
 
-    # The dispatch method makes sure the message conforms with
-    # the protocol as outlined by the assignment.
     def dispatcher(self, data):
-        message = {"request":"message", "content":data}
+        message = {"request": "message", "content": data}
         
         if data.startswith("/login") and len(data.split()) == 2:
             self.username = data.split()[1]

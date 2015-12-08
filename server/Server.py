@@ -15,6 +15,24 @@ class StateKeeper(object):
         self.connectedClients = []
         self.chatlog = []
 
+    def addClient(self, client):
+        self.connectedClients.append(client)
+
+    def removeClient(self, client):
+        self.connectedClients.remove(client)
+
+    def getClients(self):
+        return self.connectedClients
+
+    def getClientNames(self):
+        return [client.username for client in self.connectedClients]
+
+    def getMessageHistory(self):
+        return self.chatlog
+
+    def logMessage(self, msg):
+        self.chatlog.append(msg)
+
 class ClientHandler(SocketServer.BaseRequestHandler):
     
     """
@@ -26,7 +44,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         # By default, the client isn't logged in.
         self.loggedin = False
-        self.username = "Server"
+        self.username = None
 
         # Listen for incoming messages from the client.
         while True:
@@ -34,18 +52,27 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             self.dispatch(received_string)
 
     def login(self, message):
+        if message["content"].isalnum():
+            self.login(message)
+        else:
+            self.error("Illegal username. Only alphanumeric chars are allowed.")
+            return
+
         self.username = message["content"]
         self.loggedin = True
-        self.server.statekeeper.connectedClients.append(self)
+        self.server.statekeeper.addClient(self)
         response = {
             "timestamp": time.time(),
             "sender": self.username,
             "response": "history",
-            "content": self.server.statekeeper.chatlog
+            "content": self.server.statekeeper.getMessageHistory()
         }
         self.request.sendall(json.dumps(response))
 
     def logout(self):
+        if not self.loggedin:
+            return self.error("You must be logged in to access this function")
+
         response = {
             "timestamp": time.time(),
             "sender": self.username,
@@ -54,11 +81,15 @@ class ClientHandler(SocketServer.BaseRequestHandler):
         }
         self.request.sendall(json.dumps(response))
         self.loggedin = False
-        self.username = "Server"
+        self.username = None
         self.server.statekeeper.connectedClients.remove(self)
 
     def msg(self, message):
-        for client in self.server.statekeeper.connectedClients:
+        if not self.loggedin:
+            return self.error("You must be logged in to access this function")
+
+        self.server.statekeeper.logMessage(response)
+        for client in self.server.statekeeper.getClients():
             response = {
                 "timestamp": time.time(),
                 "sender": self.username,
@@ -66,14 +97,16 @@ class ClientHandler(SocketServer.BaseRequestHandler):
                 "content": message["content"]
             }
             client.request.sendall(json.dumps(response))
-        self.server.statekeeper.chatlog.append(response)
 
     def names(self):
+        if not self.loggedin:
+            return self.error("You must be logged in to access this function")
+
         response = {
             "timestamp": time.time(),
             "sender": self.username,
             "response": "names",
-            "content": "Names: \r\n" + "\r\n".join([client.username for client in self.server.statekeeper.connectedClients])
+            "content": "Names: \r\n" + "\r\n".join(self.server.statekeeper.getClientNames())
         }
         self.request.sendall(json.dumps(response))
 
@@ -104,34 +137,16 @@ class ClientHandler(SocketServer.BaseRequestHandler):
         try:
             message = json.loads(msg)
         except ValueError as e:
-            self.error("Malformed message")
-            return
+            return self.error("Malformed message")
 
-        if message["request"] == "login" and not self.loggedin:
-            if message["content"].isalnum():
-                self.login(message)
-            else:
-                self.error("Illegal username. Only alphanumeric chars are allowed.")
-        
-        elif message["request"] == "help":
-            self.help()
-        
-        elif not self.loggedin:
-            # After this, we know that the clients are logged in, and
-            # they may then access the actions reserved for logged-in users.
-            self.error("You must be logged in to access this function")
-
-        elif message["request"] == "logout":
-            self.logout()
-        
-        elif message["request"] == "message":
-            self.msg(message)
-        
-        elif message["request"] == "names":
-            self.names()
-        
-        else:
-            self.error("Illegal request.")
+        dictionary = {
+            "login": lambda: self.login(message),
+            "message": lambda: self.msg(message),
+            "help": self.help,
+            "logout": self.logout,
+            "names": self.names
+        }
+        dictionary.get(message["request"], lambda: self.error("Illegal request."))()
 
 
 class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
