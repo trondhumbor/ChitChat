@@ -52,11 +52,8 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             self.dispatch(received_string)
 
     def login(self, message):
-        if message["content"].isalnum():
-            self.login(message)
-        else:
-            self.error("Illegal username. Only alphanumeric chars are allowed.")
-            return
+        if not message["content"].isalnum():
+            return self.error("Illegal username. Only alphanumeric chars are allowed.")
 
         self.username = message["content"]
         self.loggedin = True
@@ -88,14 +85,14 @@ class ClientHandler(SocketServer.BaseRequestHandler):
         if not self.loggedin:
             return self.error("You must be logged in to access this function")
 
+        response = {
+            "timestamp": time.time(),
+            "sender": self.username,
+            "response": "message",
+            "content": message["content"]
+        }
         self.server.statekeeper.logMessage(response)
         for client in self.server.statekeeper.getClients():
-            response = {
-                "timestamp": time.time(),
-                "sender": self.username,
-                "response": "message",
-                "content": message["content"]
-            }
             client.request.sendall(json.dumps(response))
 
     def names(self):
@@ -136,17 +133,17 @@ class ClientHandler(SocketServer.BaseRequestHandler):
     def dispatch(self, msg):
         try:
             message = json.loads(msg)
-        except ValueError as e:
+        except ValueError:
             return self.error("Malformed message")
 
         dictionary = {
             "login": lambda: self.login(message),
             "message": lambda: self.msg(message),
-            "help": self.help,
-            "logout": self.logout,
-            "names": self.names
+            "help": lambda: self.help(),
+            "logout": lambda: self.logout(),
+            "names": lambda: self.names()
         }
-        dictionary.get(message["request"], lambda: self.error("Illegal request."))()
+        return dictionary.get(message["request"], lambda: self.error("Illegal request."))()
 
 
 class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):

@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from __future__ import print_function
+
 __author__ = "Trond Humborstad"
 
 import socket, json, datetime
@@ -18,7 +20,7 @@ class Client:
     def __init__(self, host, server_port):
         # Set up the socket connection to the server
         self.connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.host = host
+        self.server_host = host
         self.server_port = server_port
         self.username = "default_username"
         self.run()
@@ -26,7 +28,7 @@ class Client:
 
     def run(self):
         # Initiate the connection to the server
-        self.connection.connect((self.host, self.server_port))
+        self.connection.connect((self.server_host, self.server_port))
 
         # We kick off a background thread which'll listen for incoming messages from
         # the server. Whenever a message from the server is received, the MessageReceiver
@@ -46,23 +48,26 @@ class Client:
     # receive_message is called whenever the MessageReceiver receives a message from the server.
     # The method will then represent the message in a visually pleasing way for the user.
     def receive_message(self, message):
-        message = json.loads(message)
-        if message["response"] in ["info", "error"]:
-            print "[%s] - %s" % (message["response"], message["content"])
-        
-        elif message["response"] == "message":
-            if message["sender"] != self.username :
-                print "%s -- %s" % (message["sender"], message["content"])
-        
-        elif message["response"] == "history":
-            for msg in message["content"]:
-                print "%s -- %s" % (msg["sender"], msg["content"])
-        
-        elif message["response"] == "names":
-            print message["content"]
+        msg = json.loads(message)
 
-        elif message["response"] == "logout":
-            self.disconnect()
+        def print_message():
+            # How do we handle name collisions?
+            if msg["sender"] != self.username:
+                print("%s -- %s" % (msg["sender"], msg["content"]))
+        
+        def print_history():
+            for m in msg["content"]:
+                print("%s -- %s" % (m["sender"], m["content"]))
+
+        dictionary = {
+            "info": lambda: print("[%s] - %s" % (msg["response"], msg["content"])),
+            "error": lambda: print("[%s] - %s" % (msg["response"], msg["content"])),
+            "names": lambda: print(msg["content"]),
+            "message": print_message,
+            "history": print_history,
+            "logout": self.disconnect
+        }
+        return dictionary.get(msg["response"], lambda: print("Malformed message"))()
 
     def send_payload(self, data):
         self.connection.sendall(data)
