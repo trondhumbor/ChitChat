@@ -52,8 +52,14 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             self.dispatch(received_string)
 
     def login(self, message):
-        if not message["content"].isalnum():
+        if self.loggedin:
+            return self.error("Already logged in.")
+
+        if not message["content"] or not message["content"].isalnum():
             return self.error("Illegal username. Only alphanumeric chars are allowed.")
+
+        if message["content"] in self.server.statekeeper.getClientNames():
+            return self.error("Username is already taken.")
 
         self.username = message["content"]
         self.loggedin = True
@@ -73,7 +79,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
         response = {
             "timestamp": time.time(),
             "sender": self.username,
-            "response": "info",
+            "response": "logout",
             "content": "You've been logged out"
         }
         self.request.sendall(json.dumps(response))
@@ -112,7 +118,13 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             "timestamp": time.time(),
             "sender": self.username,
             "response": "info",
-            "content": "No help currently available" # TODO: Add some useful message here
+            "content": """
+                login <username> sends a request to login to the server. The content is a string with the username.\n
+                logout sends a request to log out and disconnect from the server. The content is None.\n
+                msg <message> sends a message to the server that should be broadcasted to all connected clients. The content is a string with the message.\n
+                names should send a request to list all the usernames currently connected to the server.\n
+                help sends a request to the server to receive this help text containing all requests supported by the server.\n
+            """
         }
         self.request.sendall(json.dumps(response))
 
@@ -139,9 +151,9 @@ class ClientHandler(SocketServer.BaseRequestHandler):
         dictionary = {
             "login": lambda: self.login(message),
             "message": lambda: self.msg(message),
-            "help": lambda: self.help(),
-            "logout": lambda: self.logout(),
-            "names": lambda: self.names()
+            "help": self.help,
+            "logout": self.logout,
+            "names": self.names
         }
         return dictionary.get(message["request"], lambda: self.error("Illegal request."))()
 
@@ -150,10 +162,9 @@ class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     allow_reuse_address = True
 
 if __name__ == "__main__":
-    HOST, PORT = "localhost", 9998
     print("Server running...")
 
     # Set up and initiate the TCP server
-    server = ThreadedTCPServer((HOST, PORT), ClientHandler)
+    server = ThreadedTCPServer(("localhost", 9998), ClientHandler)
     server.statekeeper = StateKeeper()
     server.serve_forever()

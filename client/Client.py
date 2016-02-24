@@ -3,7 +3,7 @@ from __future__ import print_function
 
 __author__ = "Trond Humborstad"
 
-import socket, json, datetime
+import socket, json, datetime, sys
 from MessageReceiver import MessageReceiver
 
 class Client:
@@ -22,7 +22,7 @@ class Client:
         self.connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_host = host
         self.server_port = server_port
-        self.username = "default_username"
+        self.username = None
         self.run()
         
 
@@ -43,51 +43,66 @@ class Client:
             self.dispatcher(input_string)
 
     def disconnect(self):
+        self.connection.shutdown(socket.SHUT_RDWR)
         self.connection.close()
+        sys.exit(0)
 
     # receive_message is called whenever the MessageReceiver receives a message from the server.
     # The method will then represent the message in a visually pleasing way for the user.
     def receive_message(self, message):
-        msg = json.loads(message)
+        try:
+            message = json.loads(message)
+        except ValueError:
+            return print("Malformed message. Not valid JSON.")
 
         def print_message():
             # How do we handle name collisions?
-            if msg["sender"] != self.username:
-                print("%s -- %s" % (msg["sender"], msg["content"]))
+            if message["sender"] != self.username:
+                print("%s -- %s" % (message["sender"], message["content"]))
         
         def print_history():
-            for m in msg["content"]:
+            for m in message["content"]:
                 print("%s -- %s" % (m["sender"], m["content"]))
 
         dictionary = {
-            "info": lambda: print("[%s] - %s" % (msg["response"], msg["content"])),
-            "error": lambda: print("[%s] - %s" % (msg["response"], msg["content"])),
-            "names": lambda: print(msg["content"]),
+            "info": lambda: print("[%s] - %s" % (message["response"], message["content"])),
+            "error": lambda: print("[%s] - %s" % (message["response"], message["content"])),
+            "names": lambda: print(message["content"]),
             "message": print_message,
             "history": print_history,
             "logout": self.disconnect
         }
-        return dictionary.get(msg["response"], lambda: print("Malformed message"))()
+        return dictionary.get(message["response"], lambda: print("Unsupported method"))()
 
     def send_payload(self, data):
         self.connection.sendall(data)
 
     def dispatcher(self, data):
-        message = {"request": "message", "content": data}
-        
-        if data.startswith("/login") and len(data.split()) == 2:
+        message = {}
+
+        if data.startswith("login") and len(data.split()) == 2:
             self.username = data.split()[1]
             message["request"] = "login"
             message["content"] = self.username
-        elif data == "/names":
+        
+        elif data.startswith("msg"):
+        	message["request"] = "message"
+        	message["content"] = data
+        
+        elif data == "names":
             message["request"] = "names"
             message["content"] = ""
-        elif data == "/logout":
+        
+        elif data == "logout":
             message["request"] = "logout"
             message["content"] = ""
-        elif data == "/help":
+        
+        elif data == "help":
             message["request"] = "help"
             message["content"] = ""
+        
+        else:
+        	return
         
         self.send_payload(json.dumps(message))
 
