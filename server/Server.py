@@ -146,7 +146,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
         try:
             message = json.loads(msg)
         except ValueError:
-            return self.error("Malformed message")
+            return
 
         dictionary = {
             "login": lambda: self.login(message),

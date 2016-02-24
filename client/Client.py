@@ -3,7 +3,7 @@ from __future__ import print_function
 
 __author__ = "Trond Humborstad"
 
-import socket, json, datetime, sys
+import socket, json, datetime, os
 from MessageReceiver import MessageReceiver
 
 class Client:
@@ -43,9 +43,9 @@ class Client:
             self.dispatcher(input_string)
 
     def disconnect(self):
-        self.connection.shutdown(socket.SHUT_RDWR)
+        #self.connection.shutdown(socket.SHUT_RDWR)
         self.connection.close()
-        sys.exit(0)
+        os._exit(0)
 
     # receive_message is called whenever the MessageReceiver receives a message from the server.
     # The method will then represent the message in a visually pleasing way for the user.
@@ -86,8 +86,8 @@ class Client:
             message["content"] = self.username
         
         elif data.startswith("msg"):
-        	message["request"] = "message"
-        	message["content"] = data
+            message["request"] = "message"
+            message["content"] = data[len("msg "):]
         
         elif data == "names":
             message["request"] = "names"
@@ -102,7 +102,7 @@ class Client:
             message["content"] = ""
         
         else:
-        	return
+            return
         
         self.send_payload(json.dumps(message))
 
