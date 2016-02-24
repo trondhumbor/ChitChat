@@ -65,7 +65,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
         self.loggedin = True
         self.server.statekeeper.addClient(self)
         response = {
-            "timestamp": time.time(),
+            "timestamp": str(int(time.time())),
             "sender": self.username,
             "response": "history",
             "content": self.server.statekeeper.getMessageHistory()
@@ -77,7 +77,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             return self.error("You must be logged in to access this function")
 
         response = {
-            "timestamp": time.time(),
+            "timestamp": str(int(time.time())),
             "sender": self.username,
             "response": "logout",
             "content": "You've been logged out"
@@ -92,7 +92,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             return self.error("You must be logged in to access this function")
 
         response = {
-            "timestamp": time.time(),
+            "timestamp": str(int(time.time())),
             "sender": self.username,
             "response": "message",
             "content": message["content"]
@@ -106,7 +106,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             return self.error("You must be logged in to access this function")
 
         response = {
-            "timestamp": time.time(),
+            "timestamp": str(int(time.time())),
             "sender": self.username,
             "response": "names",
             "content": "Names: \r\n" + "\r\n".join(self.server.statekeeper.getClientNames())
@@ -115,7 +115,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
 
     def help(self):
         response = {
-            "timestamp": time.time(),
+            "timestamp": str(int(time.time())),
             "sender": self.username,
             "response": "info",
             "content": """
@@ -130,7 +130,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
 
     def error(self, msg):
         response = {
-            "timestamp": time.time(),
+            "timestamp": str(int(time.time())),
             "sender": self.username,
             "response": "error",
             "content": msg
