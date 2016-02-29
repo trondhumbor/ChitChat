@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
+
 from __future__ import print_function
+from builtins import input
 
 __author__ = "Trond Humborstad"
 
@@ -17,11 +19,11 @@ class Client:
     the dispatch() method is called which formats the message and sends it to the server.
     """
 
-    def __init__(self, host, server_port):
+    def __init__(self, host, port):
         # Set up the socket connection to the server
         self.connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_host = host
-        self.server_port = server_port
+        self.server_port = port
         self.username = None
         self.run()
         
@@ -39,7 +41,7 @@ class Client:
 
         # We listen for user input and send it to the dispatcher for formatting.
         while True:
-            input_string = str(raw_input(""))
+            input_string = str(input(""))
             self.dispatcher(input_string)
 
     def disconnect(self):
@@ -74,9 +76,6 @@ class Client:
         }
         return dictionary.get(message["response"], lambda: print("Unsupported method"))()
 
-    def send_payload(self, data):
-        self.connection.sendall(data)
-
     def dispatcher(self, data):
         message = {}
 
@@ -104,7 +103,7 @@ class Client:
         else:
             return
         
-        self.send_payload(json.dumps(message))
+        self.connection.sendall(json.dumps(message).encode("utf-8"))
 
 
 if __name__ == "__main__":

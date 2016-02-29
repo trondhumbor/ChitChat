@@ -20,5 +20,5 @@ class MessageReceiver(Thread):
 
     def run(self):
         while True:
-            received_string = self.connection.recv(4096)
+            received_string = self.connection.recv(4096).decode("utf-8")
             self.client.receive_message(received_string)

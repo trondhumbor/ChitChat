@@ -1,7 +1,12 @@
 # -*- coding: utf-8 -*-
 __author__ = "Trond Humborstad"
 
-import SocketServer, json, time
+try:
+    import SocketServer
+except ImportError:
+    import socketserver as SocketServer
+
+import json, time
 
 class StateKeeper(object):
     """
@@ -48,7 +53,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
 
         # Listen for incoming messages from the client.
         while True:
-            received_string = self.request.recv(4096)
+            received_string = self.request.recv(4096).decode("utf-8")
             self.dispatch(received_string)
 
     def login(self, message):
@@ -70,7 +75,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             "response": "history",
             "content": self.server.statekeeper.getMessageHistory()
         }
-        self.request.sendall(json.dumps(response))
+        self.request.sendall(json.dumps(response).encode("utf-8"))
 
     def logout(self):
         if not self.loggedin:
@@ -82,10 +87,10 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             "response": "logout",
             "content": "You've been logged out"
         }
-        self.request.sendall(json.dumps(response))
+        self.request.sendall(json.dumps(response).encode("utf-8"))
         self.loggedin = False
         self.username = None
-        self.server.statekeeper.connectedClients.remove(self)
+        self.server.statekeeper.removeClient(self)
 
     def msg(self, message):
         if not self.loggedin:
@@ -99,7 +104,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
         }
         self.server.statekeeper.logMessage(response)
         for client in self.server.statekeeper.getClients():
-            client.request.sendall(json.dumps(response))
+            client.request.sendall(json.dumps(response).encode("utf-8"))
 
     def names(self):
         if not self.loggedin:
@@ -111,7 +116,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             "response": "names",
             "content": "Names: \r\n" + "\r\n".join(self.server.statekeeper.getClientNames())
         }
-        self.request.sendall(json.dumps(response))
+        self.request.sendall(json.dumps(response).encode("utf-8"))
 
     def help(self):
         response = {
@@ -119,14 +124,14 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             "sender": self.username,
             "response": "info",
             "content": """
-                login <username> sends a request to login to the server. The content is a string with the username.\n
-                logout sends a request to log out and disconnect from the server. The content is None.\n
-                msg <message> sends a message to the server that should be broadcasted to all connected clients. The content is a string with the message.\n
-                names should send a request to list all the usernames currently connected to the server.\n
-                help sends a request to the server to receive this help text containing all requests supported by the server.\n
+login <username> sends a request to login to the server. The content is a string with the username.
+logout sends a request to log out and disconnect from the server. The content is None.
+msg <message> sends a message to the server that should be broadcasted to all connected clients. The content is a string with the message.
+names should send a request to list all the usernames currently connected to the server.
+help sends a request to the server to receive this help text containing all requests supported by the server.
             """
         }
-        self.request.sendall(json.dumps(response))
+        self.request.sendall(json.dumps(response).encode("utf-8"))
 
     def error(self, msg):
         response = {
@@ -135,7 +140,7 @@ class ClientHandler(SocketServer.BaseRequestHandler):
             "response": "error",
             "content": msg
         }
-        self.request.sendall(json.dumps(response))
+        self.request.sendall(json.dumps(response).encode("utf-8"))
 
     # The dispatch-method is called whenever the server receives a message
     # from the client. The message *should* be JSON-formatted, and conform to the
@@ -165,6 +170,6 @@ if __name__ == "__main__":
     print("Server running...")
 
     # Set up and initiate the TCP server
-    server = ThreadedTCPServer(("localhost", 9998), ClientHandler)
+    server = ThreadedTCPServer(("0.0.0.0", 9998), ClientHandler)
     server.statekeeper = StateKeeper()
     server.serve_forever()
